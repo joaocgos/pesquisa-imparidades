@@ -197,17 +197,31 @@ async function startScan(){
   status.textContent='A pedir acesso à câmara...';
 
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
-    });
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      throw new Error('Este browser não suporta acesso à câmara. Usa Chrome em HTTPS.');
+    }
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+      });
+    }catch(e1){
+      // fallback sem restrições de câmara traseira
+      stream=await navigator.mediaDevices.getUserMedia({video:true});
+    }
     video.srcObject=stream;
     await video.play();
     status.textContent='Aponta para o código de barras';
     scanning=true;
     scanLoop(video);
   }catch(e){
-    status.textContent='Erro: '+e.message;
-    console.error(e);
+    let msg='Erro ('+e.name+'): '+e.message;
+    if(e.name==='NotAllowedError')msg='Permissão negada. Vai às definições do Chrome e permite o acesso à câmara para este site.';
+    else if(e.name==='NotReadableError')msg='Câmara ocupada por outra aplicação. Fecha outras apps e tenta novamente.';
+    else if(e.name==='NotFoundError')msg='Nenhuma câmara encontrada neste dispositivo.';
+    else if(location.protocol!=='https:')msg='A câmara só funciona em HTTPS. Acede ao site via https://';
+    status.textContent=msg;
+    document.getElementById('scan-btn').style.display='';
+    console.error(e.name, e.message);
   }
 }
 
